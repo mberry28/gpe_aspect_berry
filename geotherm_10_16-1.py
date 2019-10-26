@@ -2,50 +2,76 @@
 import numpy as np;  import matplotlib.pyplot as plt; from os import system as sys
 import pandas as pd;
 
-# Add in lots of documentation
-# describe "h", describe plateau
+# Code for generating a ASPECT compatible geotherm with changing elevation- a plateau with ramps.
+# define the points at which the ramp starts and stops.
 
-# new variable - model_width = 1200e3
-# new variable - sampling_points = 120
+#             _ _ _ _ _             _
+#            /         \            |
+#           /           \           plateau height
+#_ _ _ _ _ /             \ _ _ _ _ _|
+#         ^   ^       ^  ^ 
+#     ramp  plat     plat ramp
+#     start start    end  end
+# 
+# the model uses an inputted surface heatflow Q[0], surface temp T[0], thickness of the upper crust dz[0],  
+# lower crust dz[1], upper mantle dz[2], surface radiogenic heat production A[0], and the temperature at which the 
+# adiabatic mantle takes over T[4]. 
+# 
+# the thickness of the plateau occurs in the upper crust for this code.
+
+
+model_width     = 1200e3
+sampling_points = 120 
+ref_y_points    = 400
+grid_resolution = 1.e3 
+column_points   = 400   # grid points in the Y direction of the geotherm
+
 
 # convert all values to km in advance
+k      = 3.0   #Thermal conductivity W/(m*K)
+ATG    = 0.3   #Asthenospheric thermal gradient (k/km)
+Q_plat = 65e-3 #heatflow at top of plateau
+Q_ref  = 60e-3 #heatflow reference
 
-x   = np.linspace(0,1200e3,num=120)
-dz  = np.array([20.e3,10.e3,5.e3,75.e3,100.e3]) 
-A   = np.array([1.4e-6,0,0,0]) #heat production
-T   = np.array([273.,0.,0.,0.,1573.]) #temp
-Q   = np.array([60e-3,0.,0.,0.,0.0]) #heat flow 
-k   = 3.0     # Thermal conductivity W/(m*K)
-ATG = 0.3  # Asthenospheric thermal gradient (k/km)
+x      = np.linspace(0,model_width,num=sampling_points)
+dz     = np.array([20.e3,10.e3,5.e3,75.e3,100.e3]) 
+A      = np.array([1.4e-6,0,0,0]) #heat production
+T      = np.array([273.,0.,0.,0.,1573.]) #temp
+Q      = np.array([60e-3,0.,0.,0.,0.0]) #heat flow 
+k      = 3.0     # Thermal conductivity W/(m*K)
+ATG    = 0.3  # Asthenospheric thermal gradient (k/km)
+ 
 
-H = 5 #plateau height -> additional grid points above reference elevation
-  # JBN -? change to plateau_height / grid_resolution -> example: 5.e3/1.e3
+H = plateau_height / grid_resolution  #plateau height -> additional grid points above reference elevation
 X1 = 350 #ramp start
 X2 = 400 #plateau start
 X3 = 800 #plateau stop
-X4 = 850 #ramp end
+X4 = 850 #ramp end 
 
-for j in range(int(1200e3/10)):
+slope_ramp = (X2-X1)/H
+slope_Q    = (X1-X1)/Q_max-
+
+for j in range(sampling_points)):
     if x[j] <= X1*1e3 or x[j] >= X4*1e3:
      y = 400e3
      dz[0] = 20.e3
-     h = 400 #JBN - add description for what this terms is
-     Q[0] = 60e-3
+     h = column_points 
+     Q[0] = Q_ref
     elif x[j] > X1*1e3 and x[j] < X2*1e3:
      dz[0] = 20.e3+(0.1*(x[j]-(X1*1e3))) #JBN - what are terms 0.1 and 0.001? Related to ramp; I would define these variables up top and if possible calculate the values in advanced using the plateau width
      y = 400e3 + (0.01*(x[j]-(X1*1e3)))
      h = 400 + (j-35) # what is 35 related to? 35 comes from x1/number_sampling points -> calculate this in advance
-     Q[0] = 60e-3 + (.0000001*(x[j]-(X1*1e3)))
+     Q[0] = Q_ref + (slope_Q*(x[j]-(X1*1e3)))
     elif x[j] >=X2*1e3 and x[j] <= X3*1e3:
      dz[0] = 20.e3 + (H*1e3)
      y = 400e3 + (H*1e3)
      h = 400 + H
-     Q[0] = 65e-3
+     Q[0] = Q_plat
     elif x[j] >  X3*1e3 and x[j]< X4*1e3:
-     dz[0] = 20.e3-(0.1*(x[j]-(X4*1e3)))
-     y = 400e3 - (0.1*(x[j]-(X4*1e3)))
+     dz[0] = 20.e3-(slope_ramp*(x[j]-(X4*1e3)))
+     y = 400e3 - (slope_ramp*(x[j]-(X4*1e3)))
      h = (400 + H) - (j-80)
-     Q[0] = 60e-3 - (.0000001*(x[j]-(X4*1e3)))
+     Q[0] = Q_ref - (slope_Q*(x[j]-(X4*1e3)))
 
     
     # Calculate heat flow at the top of the upper crust
@@ -104,5 +130,5 @@ file.write("# POINTS: 120 405\n")
 file.write("# Columns: x y temperature [K]\n")
 for i in range(0,405):
            for j in range(0,120):
-               file.write("%.2f %.2f %.2f\n" % (Lat[i,j], Ele[i,j], Temp[i,j]))
+              file.write("%.2f %.2f %.2f\n" % (Lat[i,j], Ele[i,j], Temp[i,j]))
 file.close()      
